@@ -1,0 +1,85 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# A newer push to the same branch makes an in-flight run irrelevant.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    # Windows only: WASAPI loopback is a Windows API, and install.ps1 targets the
+    # PowerShell that ships with Windows. A green Linux run would prove nothing
+    # about the platform this tool actually runs on.
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --extra dev
+
+      - name: Lint
+        run: uv run ruff check src tests tools benchmarks
+
+      # The suite runs entirely on fakes -- no audio hardware, no model files and
+      # no network -- which is what makes it runnable on a hosted runner at all.
+      - name: Tests
+        run: uv run pytest
+
+      - name: Build the wheel
+        run: uv build
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+          retention-days: 14
+
+  installer:
+    # install.ps1 has two failure modes that no Python test can catch, and both
+    # of them are silent until a user runs the file on a stock Windows machine.
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: The script must parse
+        shell: powershell
+        run: |
+          $errors = $null
+          [void][System.Management.Automation.Language.Parser]::ParseFile(
+              (Resolve-Path 'install.ps1'), [ref]$null, [ref]$errors)
+          if ($errors) {
+              $errors | ForEach-Object { Write-Host "::error::$($_.Message)" }
+              exit 1
+          }
+          Write-Host 'install.ps1 parses cleanly'
+
+      - name: The script must keep its UTF-8 BOM
+        shell: powershell
+        run: |
+          # PowerShell 5.1 -- the version on a stock Windows install -- reads a
+          # .ps1 without a BOM as ANSI. The first accented character then ends a
+          # string and the whole script fails to parse. An editor that strips the
+          # BOM breaks the installer for every user while looking like a no-op.
+          $bytes = [System.IO.File]::ReadAllBytes((Resolve-Path 'install.ps1'))
+          if ($bytes.Length -lt 3 -or
+              $bytes[0] -ne 0xEF -or $bytes[1] -ne 0xBB -or $bytes[2] -ne 0xBF) {
+              Write-Host '::error file=install.ps1::UTF-8 BOM is missing. PowerShell 5.1 will misread this file.'
+              exit 1
+          }
+          Write-Host 'install.ps1 has its UTF-8 BOM'
