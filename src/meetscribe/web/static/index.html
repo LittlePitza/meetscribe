@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>MeetScribe</title>
+<link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+
+<a class="skip" href="#transcript">Saltar a la transcripción</a>
+
+<header class="bar">
+  <div class="bar-left">
+    <span id="rec" class="rec rec-off" role="status" aria-live="polite">
+      <span class="dot" aria-hidden="true"></span>
+      <span id="rec-label">Conectando</span>
+    </span>
+    <h1 id="session-name">MeetScribe</h1>
+  </div>
+
+  <div class="bar-right">
+    <div class="meters" aria-label="Niveles de audio">
+      <div class="meter" id="meter-mic">
+        <span class="meter-name">Yo</span>
+        <span class="leds" data-track="mic" aria-hidden="true"></span>
+        <span class="meter-db" data-db="mic">--</span>
+        <span class="meter-warn" data-warn="mic" hidden>sin señal</span>
+      </div>
+      <div class="meter" id="meter-loopback">
+        <span class="meter-name">Remoto</span>
+        <span class="leds" data-track="loopback" aria-hidden="true"></span>
+        <span class="meter-db" data-db="loopback">--</span>
+        <span class="meter-warn" data-warn="loopback" hidden>sin señal</span>
+      </div>
+    </div>
+    <time id="elapsed" class="elapsed" aria-label="Tiempo transcurrido">00:00</time>
+    <button id="stop" type="button" class="btn btn-stop">Detener</button>
+  </div>
+</header>
+
+<div id="notices" class="notices" aria-live="polite"></div>
+
+<main class="grid">
+
+  <section class="panel transcript-panel" aria-labelledby="h-transcript">
+    <div class="panel-head">
+      <h2 id="h-transcript">Transcripción</h2>
+      <label class="follow">
+        <input type="checkbox" id="autoscroll" checked>
+        Seguir
+      </label>
+    </div>
+    <ol id="transcript" class="transcript" tabindex="-1" aria-live="polite"></ol>
+    <p id="transcript-empty" class="empty">Esperando audio...</p>
+  </section>
+
+  <aside class="side">
+    <section class="panel" aria-labelledby="h-speakers">
+      <div class="panel-head"><h2 id="h-speakers">Participantes</h2></div>
+      <ul id="speakers" class="speakers"></ul>
+      <p class="hint">Haz clic en un nombre para cambiarlo. El cambio se aplica a
+        toda la transcripción.</p>
+    </section>
+
+    <section class="panel" aria-labelledby="h-actions">
+      <div class="panel-head">
+        <h2 id="h-actions">Compromisos</h2>
+        <span id="action-count" class="badge">0</span>
+      </div>
+      <ul id="actions" class="actions"></ul>
+      <p id="actions-empty" class="empty">Ninguno detectado todavía.</p>
+    </section>
+  </aside>
+
+</main>
+
+<section id="summary" class="panel summary" aria-labelledby="h-summary" hidden>
+  <div class="panel-head"><h2 id="h-summary">Acta de la reunión</h2>
+    <span id="summary-meta" class="badge"></span>
+  </div>
+  <div id="summary-body"></div>
+</section>
+
+<dialog id="rename-dialog">
+  <form method="dialog" id="rename-form">
+    <h3>Cambiar nombre</h3>
+    <p id="rename-current" class="hint"></p>
+    <input type="text" id="rename-input" maxlength="80" autocomplete="off"
+           placeholder="Nombre" aria-label="Nuevo nombre">
+    <menu>
+      <button value="cancel" type="submit" class="btn">Cancelar</button>
+      <button value="ok" type="submit" class="btn btn-primary">Guardar</button>
+    </menu>
+  </form>
+</dialog>
+
+<script src="/static/app.js"></script>
+</body>
+</html>

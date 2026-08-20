@@ -1,0 +1,62 @@
+﻿[
+    {
+        "index":  1,
+        "speaker":  1,
+        "file":  "turn_01_spk1.wav",
+        "text":  "Buenos dias a todos, gracias por conectarse. Vamos a revisar el avance del proyecto de facturacion electronica."
+    },
+    {
+        "index":  2,
+        "speaker":  2,
+        "file":  "turn_02_spk2.wav",
+        "text":  "Perfecto. Por mi parte el modulo de validacion ya esta terminado, lo subi al repositorio ayer por la tarde."
+    },
+    {
+        "index":  3,
+        "speaker":  1,
+        "file":  "turn_03_spk1.wav",
+        "text":  "Excelente. Y como vamos con la integracion al sistema del banco?"
+    },
+    {
+        "index":  4,
+        "speaker":  3,
+        "file":  "turn_04_spk3.wav",
+        "text":  "Ahi tenemos un bloqueo. El banco todavia no nos entrega las credenciales del ambiente de pruebas."
+    },
+    {
+        "index":  5,
+        "speaker":  1,
+        "file":  "turn_05_spk1.wav",
+        "text":  "Entendido. Entonces necesitamos escalarlo. Yo hablo con el contacto comercial esta misma semana."
+    },
+    {
+        "index":  6,
+        "speaker":  2,
+        "file":  "turn_06_spk2.wav",
+        "text":  "De acuerdo. Mientras tanto puedo avanzar con las pruebas unitarias usando un simulador."
+    },
+    {
+        "index":  7,
+        "speaker":  3,
+        "file":  "turn_07_spk3.wav",
+        "text":  "Me parece bien. Calculo que el simulador nos toma dos dias de trabajo, maximo tres."
+    },
+    {
+        "index":  8,
+        "speaker":  1,
+        "file":  "turn_08_spk1.wav",
+        "text":  "Listo. Entonces quedamos asi: yo escalo el tema de las credenciales antes del viernes."
+    },
+    {
+        "index":  9,
+        "speaker":  2,
+        "file":  "turn_09_spk2.wav",
+        "text":  "Y yo entrego el simulador y las pruebas unitarias para el proximo martes."
+    },
+    {
+        "index":  10,
+        "speaker":  1,
+        "file":  "turn_10_spk1.wav",
+        "text":  "Muy bien. El presupuesto aprobado es de cuarenta y cinco mil pesos para esta fase. Nos vemos la proxima semana."
+    }
+]

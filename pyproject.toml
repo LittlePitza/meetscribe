@@ -1,0 +1,175 @@
+[project]
+name = "meetscribe"
+version = "1.0.0"
+# Package metadata is read by developers, so it follows the code side of the
+# language split and is English. The interface itself speaks Spanish.
+description = "Local real-time meeting transcription and minutes for Windows — dual-track WASAPI capture, CPU-only STT, online diarization, nothing leaves the machine"
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "MIT" }
+authors = [{ name = "MeetScribe" }]
+keywords = [
+    "transcription", "meetings", "whisper", "diarization", "wasapi",
+    "speech-to-text", "windows", "privacy", "offline", "teams",
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: MIT License",
+    "Natural Language :: Spanish",
+    "Operating System :: Microsoft :: Windows :: Windows 10",
+    "Operating System :: Microsoft :: Windows :: Windows 11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Multimedia :: Sound/Audio :: Speech",
+    "Topic :: Office/Business",
+    "Typing :: Typed",
+]
+
+dependencies = [
+    # --- numeric core -------------------------------------------------------
+    "numpy>=2.0",
+    "scipy>=1.14",             # polyphase resampling (offline) + agglomerative refinement
+    "soxr>=0.5",               # stateful streaming resampler, 48k -> 16k
+    # --- capture ------------------------------------------------------------
+    "PyAudioWPatch>=0.2.12.7 ; sys_platform == 'win32'",  # primary: WASAPI loopback
+    "soundcard>=0.4.3",        # fallback capture backend
+    # --- inference ----------------------------------------------------------
+    "faster-whisper>=1.1",     # CTranslate2 Whisper, int8 CPU
+    "sherpa-onnx>=1.10",       # Silero VAD + TitaNet speaker embeddings (no PyTorch)
+    # --- interface / integrations ------------------------------------------
+    "click>=8.1",              # CLI
+    "PyYAML>=6.0",             # config file
+    "httpx>=0.27",             # Ollama adapter
+    "anthropic>=0.60",         # Claude adapter
+    "keyring>=25.0",           # Windows Credential Manager for the API key
+]
+
+[project.urls]
+Homepage = "https://github.com/LittlePitza/meetscribe"
+Documentation = "https://github.com/LittlePitza/meetscribe#readme"
+Architecture = "https://github.com/LittlePitza/meetscribe/blob/main/docs/architecture.md"
+Benchmarks = "https://github.com/LittlePitza/meetscribe/blob/main/docs/benchmarks.md"
+Changelog = "https://github.com/LittlePitza/meetscribe/blob/main/CHANGELOG.md"
+Issues = "https://github.com/LittlePitza/meetscribe/issues"
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0", "ruff>=0.14"]
+
+[project.scripts]
+meetscribe = "meetscribe.cli.main:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/meetscribe"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q --strict-markers"
+markers = [
+    "slow: needs a real model download or real audio hardware (deselect with -m 'not slow')",
+]
+filterwarnings = ["error::DeprecationWarning:meetscribe.*"]
+
+# ---------------------------------------------------------------------- linting
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = [
+    "E", "W",      # pycodestyle
+    "F",           # pyflakes
+    "I",           # import sorting
+    "N",           # pep8-naming
+    "UP",          # pyupgrade
+    "B",           # bugbear
+    "C4",          # comprehensions
+    "SIM",         # simplify
+    "RUF",         # ruff-specific
+    "ARG",         # unused arguments
+    "PTH",         # pathlib over os.path
+    "RET",         # return simplification
+    "TRY",         # exception antipatterns
+    "PL",          # pylint
+    "S",           # bandit
+    "A",           # builtin shadowing
+    "DTZ",         # naive datetimes
+    "ISC",         # implicit string concat
+    "LOG", "G",    # logging correctness
+    "PIE", "SLF", "T20", "TID", "PERF", "FURB",
+]
+
+ignore = [
+    # This project states its errors twice on purpose: a short technical message
+    # for the log and a long Spanish `user_message` for the person. Both of these
+    # rules exist to stop exactly that, and here it is the point.
+    "TRY003", "EM101", "EM102",
+    # Heavy imports (ctranslate2, onnxruntime, anthropic) are deliberately loaded
+    # inside the functions that need them. Hoisting them would add seconds to
+    # `meetscribe --help` and make an absent optional backend a hard import error.
+    "PLC0415",
+    # `__all__` and `__slots__` are grouped by meaning rather than alphabetically,
+    # which reads better next to the definitions they mirror.
+    "RUF022", "RUF023",
+    # Thresholds and status codes are clearer inline, beside the comment that
+    # justifies the number, than as a constant defined far away.
+    "PLR2004",
+    # `icacls` and `whoami` are invoked with fixed arguments to harden the data
+    # directory; there is no untrusted input and no shell.
+    "S603", "S607",
+    # The pipeline is long-lived and stateful; splitting these would scatter logic
+    # that belongs together.
+    "PLR0911", "PLR0912", "PLR0913", "PLR0915", "PLR0917",
+    # A `try`/`else` split reads worse than the early return it would replace.
+    "TRY300",
+    # The `raise` inside `SessionRunner.start`'s try block is the point: its
+    # `except BaseException` must tear down the half-started pipeline, including
+    # when the failure is the one it raised itself.
+    "TRY301",
+    # `str, Enum` is kept over `StrEnum` deliberately. They are not equivalent:
+    # `StrEnum` changes what `str(TrackKind.MIC)` returns from "TrackKind.MIC" to
+    # "mic", and these values are formatted into log lines, event payloads and
+    # database columns. The modernisation would be a silent behaviour change.
+    "UP042",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = [
+    "S101",     # assert is the point of a test
+    "SLF001",   # tests may reach into privates to set up a state
+    "PLR2004",  # expected values are literals, by design
+    "ARG001", "ARG002", "ARG005",  # fakes must match signatures they do not use
+    "S104",     # "0.0.0.0" appears only as the value the panel must refuse
+    "C408",     # dict(...) reads better than a literal for keyword-style fixtures
+]
+"benchmarks/*" = ["ALL"]
+
+[tool.ruff.lint.flake8-tidy-imports]
+# "parents" rather than "all": reaching up out of a package is the thing worth
+# banning, while `from .conftest import ...` inside the test package is idiomatic.
+ban-relative-imports = "parents"
+
+[tool.ruff.lint.extend-per-file-ignores]
+# Every renderer takes the same five arguments so `render()` can dispatch on a
+# format string alone; SRT has no use for the speaker list, and that is the point
+# of a uniform signature rather than a defect in one implementation.
+"src/meetscribe/export.py" = ["ARG001"]
+# These implement Protocols from `core.ports`. A parameter the port declares must
+# stay in the signature even where a given adapter has nothing to do with it --
+# the null summarizer accepts a request it will never read, and the Spanish-only
+# action-item prompt accepts the `language` the port promises.
+"src/meetscribe/summarize/base.py" = ["ARG002"]
+"src/meetscribe/stt/transcriber.py" = ["ARG002"]
+"src/meetscribe/diarize/embedder.py" = ["ARG002"]
+"src/meetscribe/diarize/online.py" = ["ARG002"]
+# `signal.signal` and `click.progressbar` choose the callback signatures here.
+"src/meetscribe/cli/main.py" = ["ARG001"]
+# `BaseHTTPRequestHandler.handle_error` is overridden with the stdlib's signature.
+"src/meetscribe/web/server.py" = ["ARG002"]

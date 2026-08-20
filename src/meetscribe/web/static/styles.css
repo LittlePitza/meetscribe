@@ -1,0 +1,838 @@
+/* MeetScribe panel.
+ *
+ * Information hierarchy, in the order it must be readable from across a desk:
+ *   1. Is it recording?          -> the pulsing indicator, top-left, always visible
+ *   2. Is audio arriving?        -> the two level meters, top-right
+ *   3. What is being said?       -> the transcript, the largest region
+ *   4. What did I commit to?     -> the action-item list, beside it
+ *   5. What happened overall?    -> the summary, which only appears at the end
+ *
+ * A dead microphone has to be obvious in seconds, so the meter for a silent track
+ * turns amber and says so. Everything else is deliberately quiet: this page is on
+ * screen for an hour at a time while the user is paying attention to a meeting, not
+ * to a UI.
+ *
+ * Three rules the palette follows:
+ *
+ * - Every colour is a token, and every token is defined in *both* themes. A value
+ *   that only exists in the dark block silently falls back to a dark-tuned colour
+ *   on a light desktop, which is how a panel ends up unreadable in daylight.
+ * - Every text/background pair clears WCAG AA (4.5:1); the lowest in either theme
+ *   is 4.87:1. The accents are deliberately darker in the light theme for this
+ *   reason -- the same blue cannot serve on #0F1115 and on white.
+ * - Track identity is never carried by colour alone. Each transcript line also has
+ *   its speaker's name and a left border, so the mic/remote distinction survives
+ *   both colour blindness and a monochrome print.
+ */
+
+:root {
+  color-scheme: dark;
+
+  --bg: #0f1115;
+  --bg-panel: #16191f;
+  --bg-raised: #1e222a;
+  --line: #2a2f3a;
+  --line-strong: #3a4150;
+  --text: #e8eaf0;
+  --text-dim: #9aa3b5;
+
+  --accent: #7aa2f7;
+  --accent-soft: rgba(122, 162, 247, 0.14);
+  --rec: #ff6b70;
+  --rec-soft: rgba(255, 107, 112, 0.14);
+  --warn: #e9a93f;
+  --warn-soft: rgba(233, 169, 63, 0.14);
+  --ok: #4fd08b;
+  --ok-soft: rgba(79, 208, 139, 0.14);
+  --mic: #7aa2f7;
+  --remote: #c08cf5;
+  --on-accent: #0b0e14;
+
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.22);
+  --backdrop: rgba(0, 0, 0, 0.6);
+
+  /* Dense dashboard scale: this page shows a lot at once, for a long time. */
+  --sp-1: 0.25rem;
+  --sp-2: 0.5rem;
+  --sp-3: 0.75rem;
+  --sp-4: 1rem;
+  --sp-5: 1.5rem;
+
+  --radius: 10px;
+  --radius-sm: 6px;
+  --ring: 2px;
+  --font: system-ui, "Segoe UI", Roboto, sans-serif;
+  --mono: "Cascadia Mono", Consolas, "SF Mono", ui-monospace, monospace;
+  --speed: 160ms;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    color-scheme: light;
+
+    --bg: #f4f6fa;
+    --bg-panel: #ffffff;
+    --bg-raised: #ebeef4;
+    --line: #d5dae4;
+    --line-strong: #b9c1d0;
+    --text: #12151c;
+    --text-dim: #586074;
+
+    --accent: #2453c4;
+    --accent-soft: rgba(36, 83, 196, 0.1);
+    --rec: #c32b31;
+    --rec-soft: rgba(195, 43, 49, 0.1);
+    --warn: #8a5605;
+    --warn-soft: rgba(138, 86, 5, 0.1);
+    --ok: #0f7043;
+    --ok-soft: rgba(15, 112, 67, 0.1);
+    --mic: #2453c4;
+    --remote: #7a31be;
+    --on-accent: #ffffff;
+
+    --shadow: 0 1px 2px rgba(18, 21, 28, 0.06), 0 8px 24px rgba(18, 21, 28, 0.08);
+    --backdrop: rgba(18, 21, 28, 0.4);
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  height: 100%;
+}
+
+body {
+  /* A column layout with the transcript as the only growing row is what lets the
+   * transcript own the leftover height exactly, instead of guessing at it with a
+   * viewport calculation that breaks as soon as a notice appears. */
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 16px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3 {
+  margin: 0;
+  font-weight: 600;
+}
+
+h1 {
+  font-size: 1.05rem;
+  letter-spacing: -0.01em;
+}
+
+h2 {
+  font-size: 0.8rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+/* Keyboard focus is visible everywhere, and only for keyboard users. Removing it
+ * would make the rename flow and the stop button unusable without a mouse. */
+:focus-visible {
+  outline: var(--ring) solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+.skip {
+  position: absolute;
+  left: var(--sp-2);
+  top: -3rem;
+  z-index: 30;
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--radius-sm);
+  background: var(--bg-panel);
+  color: var(--text);
+  box-shadow: var(--shadow);
+  transition: top var(--speed) ease;
+}
+
+.skip:focus {
+  top: var(--sp-2);
+}
+
+/* ------------------------------------------------------------------ top bar */
+
+.bar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-4);
+  flex-wrap: wrap;
+  padding: var(--sp-3) var(--sp-4);
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--line);
+}
+
+.bar-left,
+.bar-right {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.bar-right {
+  justify-content: flex-end;
+}
+
+.bar-left h1 {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rec {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: 0.3rem 0.7rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  white-space: nowrap;
+  background: var(--bg-raised);
+  color: var(--text-dim);
+}
+
+.rec .dot {
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 50%;
+  background: currentColor;
+  flex: none;
+}
+
+.rec-on {
+  background: var(--rec-soft);
+  color: var(--rec);
+}
+.rec-on .dot {
+  animation: pulse 1.6s ease-in-out infinite;
+}
+.rec-off {
+  opacity: 0.8;
+}
+.rec-done {
+  background: var(--ok-soft);
+  color: var(--ok);
+}
+.rec-error {
+  background: var(--rec-soft);
+  color: var(--rec);
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.2;
+  }
+}
+
+.elapsed {
+  font-family: var(--mono);
+  font-size: 1.3rem;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+/* ------------------------------------------------------------- level meters */
+
+.meters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2) var(--sp-4);
+}
+
+/* Deliberately not transitioned. "This track has gone silent" is an alarm, and an
+ * alarm should be true the instant it is true -- easing it in costs nothing on a
+ * focused window but delays the signal on a throttled background tab, which is
+ * exactly when the user is looking away and needs it most. */
+.meter {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-size: 0.76rem;
+  color: var(--text-dim);
+}
+
+.meter-name {
+  min-width: 3.2rem;
+  text-align: right;
+  font-weight: 600;
+}
+
+.meter-db {
+  font-family: var(--mono);
+  min-width: 3.4rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.leds {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-raised);
+}
+
+.leds i {
+  display: block;
+  width: 4px;
+  height: 14px;
+  border-radius: 1px;
+  background: var(--line-strong);
+  transition: background var(--speed) linear;
+}
+
+#meter-mic .leds i.on {
+  background: var(--mic);
+}
+#meter-loopback .leds i.on {
+  background: var(--remote);
+}
+.leds i.on.hot {
+  background: var(--rec);
+}
+
+.meter.silent {
+  color: var(--warn);
+}
+
+/* The reason a track is silent is written into the DOM by app.js, not generated
+ * here: user-facing wording does not belong in a stylesheet, where it cannot be
+ * translated, tested, or read by a screen reader. */
+.meter-warn {
+  font-weight: 600;
+  color: var(--warn);
+}
+
+/* -------------------------------------------------------------------- layout */
+
+.grid {
+  flex: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 21rem;
+  gap: var(--sp-4);
+  padding: var(--sp-4);
+  align-items: start;
+  min-height: 0;
+}
+
+@media (max-width: 60rem) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* In a window narrow enough to sit beside Teams, the LED strip is the first thing
+ * to go: it is decorative (aria-hidden), and the dB reading plus the "sin señal"
+ * label carry the same information in less than a third of the width. */
+@media (max-width: 44rem) {
+  .leds {
+    display: none;
+  }
+
+  .meter-name {
+    min-width: 0;
+  }
+
+  .elapsed {
+    font-size: 1.1rem;
+  }
+}
+
+.panel {
+  background: var(--bg-panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.transcript-panel {
+  display: flex;
+  flex-direction: column;
+  /* Fill the row, but never taller than the space under the sticky bar. */
+  max-height: calc(100vh - 6rem);
+  min-height: 12rem;
+}
+
+.panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  border-bottom: 1px solid var(--line);
+  flex: none;
+}
+
+.side {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+
+.badge {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  background: var(--bg-raised);
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.empty,
+.hint {
+  margin: 0;
+  padding: var(--sp-3) var(--sp-4);
+  color: var(--text-dim);
+  font-size: 0.84rem;
+}
+
+/* ---------------------------------------------------------------- transcript */
+
+.transcript {
+  list-style: none;
+  margin: 0;
+  padding: var(--sp-2) 0;
+  flex: 1;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+/* While there is nothing to show, the list must not claim the panel's height --
+ * otherwise "Esperando audio..." is stranded at the bottom of an empty box. */
+.transcript:empty {
+  flex: 0 0 auto;
+  padding: 0;
+}
+
+.line {
+  display: grid;
+  grid-template-columns: 3.9rem minmax(0, 1fr);
+  gap: var(--sp-3);
+  padding: 0.3rem var(--sp-4) 0.3rem calc(var(--sp-4) - 3px);
+  border-left: 3px solid transparent;
+  animation: appear var(--speed) ease-out;
+}
+
+.line:hover {
+  background: var(--bg-raised);
+}
+.line.mic {
+  border-left-color: var(--mic);
+}
+.line.loopback {
+  border-left-color: var(--remote);
+}
+
+@keyframes appear {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.line .t {
+  font-family: var(--mono);
+  font-size: 0.74rem;
+  color: var(--text-dim);
+  padding-top: 0.28rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.line .body {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.line .who {
+  font-weight: 600;
+  font-size: 0.84rem;
+  margin-right: 0.35rem;
+}
+
+.line.mic .who {
+  color: var(--mic);
+}
+.line.loopback .who {
+  color: var(--remote);
+}
+
+/* A draft is text the decoder may still revise. It has to look unfinished
+ * without looking broken, or the user re-reads a line that is about to change. */
+.line.draft .text {
+  color: var(--text-dim);
+  font-style: italic;
+}
+
+.line.draft .text::after {
+  content: " …";
+  opacity: 0.6;
+}
+
+/* ------------------------------------------------------------------ speakers */
+
+.speakers {
+  list-style: none;
+  margin: 0;
+  padding: var(--sp-1) 0;
+}
+
+.speakers li {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: 0.3rem var(--sp-4);
+}
+
+.speakers .swatch {
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 50%;
+  flex: none;
+  transition: box-shadow var(--speed) ease;
+}
+
+.speakers .swatch.mic {
+  background: var(--mic);
+}
+.speakers .swatch.loopback {
+  background: var(--remote);
+}
+
+.speakers .talking {
+  box-shadow: 0 0 0 4px var(--accent-soft);
+}
+
+.name-btn {
+  background: none;
+  border: none;
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0.1rem 0;
+  text-align: left;
+  border-bottom: 1px dashed var(--line-strong);
+  transition: color var(--speed) ease, border-color var(--speed) ease;
+}
+
+.name-btn:hover {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+.speakers .count {
+  margin-left: auto;
+  color: var(--text-dim);
+  font-size: 0.76rem;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ------------------------------------------------------------------- actions */
+
+.actions {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.actions li {
+  padding: var(--sp-2) var(--sp-4);
+  border-bottom: 1px solid var(--line);
+  font-size: 0.88rem;
+}
+
+.actions li:last-child {
+  border-bottom: none;
+}
+.actions .owner {
+  color: var(--accent);
+  font-weight: 600;
+}
+.actions .due {
+  color: var(--warn);
+  white-space: nowrap;
+}
+
+/* ------------------------------------------------------------------- notices */
+
+.notices:not(:empty) {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  padding: var(--sp-4) var(--sp-4) 0;
+}
+
+.notice {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--accent);
+  border-radius: var(--radius-sm);
+  background: var(--bg-panel);
+  font-size: 0.86rem;
+  animation: appear var(--speed) ease-out;
+}
+
+.notice.warn {
+  border-left-color: var(--warn);
+  background: var(--warn-soft);
+}
+.notice.error {
+  border-left-color: var(--rec);
+  background: var(--rec-soft);
+}
+
+.notice .msg {
+  flex: 1;
+  min-width: 0;
+}
+
+/* A real button, not a styled span: the notice about a dead microphone is the
+ * most important thing this page ever says, so dismissing it must work from the
+ * keyboard too. */
+.notice .close {
+  flex: none;
+  width: 2rem;
+  height: 2rem;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text-dim);
+  font: inherit;
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: background var(--speed) ease, color var(--speed) ease;
+}
+
+.notice .close:hover {
+  background: var(--bg-raised);
+  color: var(--text);
+}
+
+/* ------------------------------------------------------------------- summary */
+
+.summary {
+  margin: 0 var(--sp-4) var(--sp-5);
+}
+
+.summary .body {
+  padding: var(--sp-4);
+}
+
+.summary p.exec {
+  font-size: 1rem;
+  margin: 0;
+  max-width: 70ch;
+}
+
+.summary h3 {
+  margin: var(--sp-4) 0 var(--sp-1);
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+}
+
+.summary ul {
+  margin: 0;
+  padding-left: 1.15rem;
+  max-width: 80ch;
+}
+
+.summary li {
+  margin: 0.15rem 0;
+}
+
+/* -------------------------------------------------------------------- inputs */
+
+.btn {
+  font: inherit;
+  font-size: 0.85rem;
+  padding: 0.35rem 0.85rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line-strong);
+  background: var(--bg-raised);
+  color: var(--text);
+  cursor: pointer;
+  transition: border-color var(--speed) ease, background var(--speed) ease,
+    color var(--speed) ease;
+}
+
+.btn:hover {
+  border-color: var(--accent);
+}
+
+.btn-stop {
+  border-color: var(--rec);
+  color: var(--rec);
+  font-weight: 600;
+}
+
+.btn-stop:hover:not([disabled]) {
+  background: var(--rec-soft);
+  border-color: var(--rec);
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: var(--on-accent);
+  border-color: var(--accent);
+  font-weight: 600;
+}
+
+.btn[disabled] {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.follow {
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  display: flex;
+  gap: var(--sp-1);
+  align-items: center;
+  cursor: pointer;
+  user-select: none;
+}
+
+.follow input {
+  cursor: pointer;
+  accent-color: var(--accent);
+}
+
+dialog {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--bg-panel);
+  color: var(--text);
+  padding: var(--sp-4);
+  min-width: 18rem;
+  box-shadow: var(--shadow);
+}
+
+dialog::backdrop {
+  background: var(--backdrop);
+}
+
+dialog h3 {
+  font-size: 0.95rem;
+}
+
+dialog input[type="text"] {
+  font: inherit;
+  width: 100%;
+  margin: var(--sp-2) 0 var(--sp-3);
+  padding: 0.45rem 0.6rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line-strong);
+  background: var(--bg);
+  color: var(--text);
+}
+
+dialog input[type="text"]:focus-visible {
+  border-color: var(--accent);
+}
+
+dialog menu {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--sp-2);
+  margin: 0;
+  padding: 0;
+}
+
+/* --------------------------------------------------------------------- motion */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ---------------------------------------------------------------------- print */
+
+/* Someone will print the minutes. Give them the minutes, not the chrome: the
+ * live controls and meters are meaningless on paper. */
+@media print {
+  .bar,
+  .notices,
+  .side,
+  .follow,
+  dialog,
+  .skip {
+    display: none !important;
+  }
+
+  body {
+    background: #ffffff;
+    color: #000000;
+    font-size: 11pt;
+  }
+
+  .grid {
+    display: block;
+    padding: 0;
+  }
+
+  .panel {
+    border: none;
+  }
+
+  .transcript-panel {
+    max-height: none;
+  }
+
+  .transcript {
+    overflow: visible;
+  }
+
+  .line {
+    break-inside: avoid;
+  }
+
+  .summary {
+    margin: 0;
+  }
+}

@@ -1,0 +1,61 @@
+name: Bug report
+description: Something does not work
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Most capture problems are diagnosed instantly by `meetscribe doctor`, so please
+        include its output — it reports the audio endpoints, their measured signal levels,
+        the model cache state and the data directory's permissions.
+
+        **Do not paste transcript content, meeting audio, or an API key.**
+
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what happened, and what you expected instead.
+    validations:
+      required: true
+
+  - type: textarea
+    id: doctor
+    attributes:
+      label: Output of `meetscribe doctor`
+      render: text
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Output of `meetscribe --version`
+    validations:
+      required: true
+
+  - type: dropdown
+    id: stage
+    attributes:
+      label: Which stage
+      options:
+        - Installation (install.ps1)
+        - Audio capture / devices
+        - Transcription
+        - Speaker separation
+        - Web panel
+        - Minutes / summarizer
+        - Export or archive commands
+        - Something else
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant log lines
+      description: >
+        From `%LOCALAPPDATA%\MeetScribe\logs\meetscribe.log`. Secrets are stripped by a
+        redaction filter, but please read what you paste before pasting it.
+      render: text

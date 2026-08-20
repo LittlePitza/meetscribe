@@ -1,0 +1,61 @@
+# ---------------------------------------------------------------- environments
+.venv/
+._spikevenv/
+venv/
+env/
+
+# --------------------------------------------------------------------- caches
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# ---------------------------------------------------------------- build output
+build/
+dist/
+
+# The wheel is the deployment unit and install.ps1 resolves dependencies at
+# install time, so there is no lock file in the deployment path to keep honest.
+# Committing one would be an improvement for reproducibility -- see SECURITY.md,
+# "Known limitations".
+uv.lock
+
+# ------------------------------------------------------- models (never commit)
+# ONNX models are pinned by SHA-256 in src/meetscribe/assets.py and downloaded
+# on demand. A copy in the tree would be an unverified second source of truth.
+*.onnx
+*.bin
+benchmarks/models/
+
+# --------------------------------------------- recordings, transcripts, config
+# Everything below can contain the content of a real meeting.
+data/
+.testdata/
+*.db
+*.db-wal
+*.db-shm
+*.log
+
+# Raw audio, except the benchmark fixtures that back the claims in
+# docs/benchmarks.md — those are synthetic speech with published ground truth.
+*.wav
+!benchmarks/fixtures_3spk/*.wav
+!benchmarks/fixtures_2spk/*.wav
+
+# A user's config.yaml records device choices and provider settings. The
+# defaults live in src/meetscribe/config.py; `meetscribe setup` writes the file.
+config.yaml
+
+# ------------------------------------------------------------ editors and OS
+.vscode/
+.idea/
+*.swp
+*~
+.DS_Store
+Thumbs.db
+
+# ------------------------------------------------------------- agent tooling
+# Local assistant/editor scratch configuration. Not part of the project.
+.claude/

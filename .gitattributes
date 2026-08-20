@@ -1,0 +1,29 @@
+# Normalise line endings in the repository, and be explicit about the files
+# where the exact bytes matter.
+
+* text=auto eol=lf
+
+# PowerShell 5.1 -- the version that ships with Windows -- reads a .ps1 as ANSI
+# unless the file starts with a UTF-8 BOM, and it wants CRLF. Getting either
+# wrong turns an accented character into a parse error, so these files are
+# checked out with CRLF and their BOM is part of the content.
+*.ps1   text eol=crlf
+
+# Windows batch shims must be CRLF for the same reason.
+*.cmd   text eol=crlf
+*.bat   text eol=crlf
+
+# Binary: never normalised, never diffed as text.
+*.wav   binary
+*.onnx  binary
+*.bin   binary
+*.png   binary
+*.jpg   binary
+*.ico   binary
+*.whl   binary
+*.gz    binary
+
+# Keep generated benchmark audio and the vendored front-end out of language
+# statistics and collapsed in pull-request diffs.
+benchmarks/fixtures_3spk/* linguist-generated=true
+benchmarks/fixtures_2spk/* linguist-generated=true

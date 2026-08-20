@@ -1,0 +1,58 @@
+﻿[
+    {
+        "index":  1,
+        "speaker":  1,
+        "voice":  "Microsoft Helena Desktop",
+        "file":  "t01_spk1.wav",
+        "text":  "Buenos dias, vamos a revisar el avance del proyecto de facturacion."
+    },
+    {
+        "index":  2,
+        "speaker":  2,
+        "voice":  "Microsoft Zira Desktop",
+        "file":  "t02_spk2.wav",
+        "text":  "Por mi parte el modulo de validacion ya quedo terminado ayer."
+    },
+    {
+        "index":  3,
+        "speaker":  1,
+        "voice":  "Microsoft Helena Desktop",
+        "file":  "t03_spk1.wav",
+        "text":  "Y como vamos con la integracion al sistema del banco?"
+    },
+    {
+        "index":  4,
+        "speaker":  2,
+        "voice":  "Microsoft Zira Desktop",
+        "file":  "t04_spk2.wav",
+        "text":  "Ahi tenemos un bloqueo con las credenciales de pruebas."
+    },
+    {
+        "index":  5,
+        "speaker":  1,
+        "voice":  "Microsoft Helena Desktop",
+        "file":  "t05_spk1.wav",
+        "text":  "Entendido, yo lo escalo con el contacto comercial esta semana."
+    },
+    {
+        "index":  6,
+        "speaker":  2,
+        "voice":  "Microsoft Zira Desktop",
+        "file":  "t06_spk2.wav",
+        "text":  "Perfecto, mientras avanzo con el simulador y las pruebas unitarias."
+    },
+    {
+        "index":  7,
+        "speaker":  1,
+        "voice":  "Microsoft Helena Desktop",
+        "file":  "t07_spk1.wav",
+        "text":  "El presupuesto aprobado es de cuarenta y cinco mil pesos."
+    },
+    {
+        "index":  8,
+        "speaker":  2,
+        "voice":  "Microsoft Zira Desktop",
+        "file":  "t08_spk2.wav",
+        "text":  "De acuerdo, lo entrego para el proximo martes sin falta."
+    }
+]
