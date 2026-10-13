@@ -52,7 +52,7 @@ against the Protocols only.
 
 Two consequences that pay for the indirection:
 
-- **The whole orchestration is unit-testable.** 322 tests run with in-memory fakes: no audio
+- **The whole orchestration is unit-testable.** 329 tests run with in-memory fakes: no audio
   hardware, no model files, no network, and an injected clock. The threading, the shutdown
   ordering, the backpressure policy — all exercised deterministically.
 - **The dependency arrow points inward.** Protocols are structural, so an adapter never
